@@ -1,0 +1,59 @@
+{
+  "name": "Nightly Eval Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Nightly Cron",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL }}/eval/run",
+        "authentication": "none",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call-eval-api",
+      "name": "Run Eval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const report = $input.all()[0].json;\nconst summary = [\n  `# Nightly Eval Report`,\n  `**Timestamp**: ${report.timestamp}`,\n  `**Dataset**: ${report.dataset}`,\n  `**Examples**: ${report.num_examples}`,\n  `**Avg Keyword Relevance**: ${(report.avg_keyword_relevance * 100).toFixed(1)}%`,\n  `**Pass**: ${report.pass ? '✅' : '❌'}`,\n].join('\\n');\nconsole.log(summary);\nreturn [{ json: { ...report, summary } }];"
+      },
+      "id": "write-summary",
+      "name": "Write Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [720, 300]
+    }
+  ],
+  "connections": {
+    "Nightly Cron": {
+      "main": [[{"node": "Run Eval", "type": "main", "index": 0}]]
+    },
+    "Run Eval": {
+      "main": [[{"node": "Write Summary", "type": "main", "index": 0}]]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "nightly-eval-workflow"
+}

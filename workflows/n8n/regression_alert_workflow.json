@@ -1,0 +1,105 @@
+{
+  "name": "Regression Alert Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Post-Eval Check Cron",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE_URL }}/eval/run",
+        "authentication": "none",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call-eval-api",
+      "name": "Run Eval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.avg_keyword_relevance }}",
+              "operation": "smaller",
+              "value2": "={{ $env.EVAL_THRESHOLD || 0.5 }}"
+            }
+          ]
+        }
+      },
+      "id": "check-threshold",
+      "name": "Below Threshold?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ALERT_WEBHOOK_URL }}",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=🚨 *Adaptive RAG Regression Alert*\\nEval score dropped below threshold!\\n\\n*Score*: {{ ($json.avg_keyword_relevance * 100).toFixed(1) }}%\\n*Threshold*: {{ ($env.EVAL_THRESHOLD || 0.5) * 100 }}%\\n*Dataset*: {{ $json.dataset }}\\n*Time*: {{ $json.timestamp }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-alert",
+      "name": "Send Slack/Webhook Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "console.log('[Regression Alert] Score OK:', $input.all()[0].json.avg_keyword_relevance);\nreturn $input.all();"
+      },
+      "id": "no-alert",
+      "name": "No Alert Needed",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [960, 420]
+    }
+  ],
+  "connections": {
+    "Post-Eval Check Cron": {
+      "main": [[{"node": "Run Eval", "type": "main", "index": 0}]]
+    },
+    "Run Eval": {
+      "main": [[{"node": "Below Threshold?", "type": "main", "index": 0}]]
+    },
+    "Below Threshold?": {
+      "main": [
+        [{"node": "Send Slack/Webhook Alert", "type": "main", "index": 0}],
+        [{"node": "No Alert Needed", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "regression-alert-workflow"
+}

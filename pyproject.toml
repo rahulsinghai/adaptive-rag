@@ -1,0 +1,60 @@
+[project]
+name = "adaptive-rag"
+version = "0.1.0"
+description = "Adaptive RAG with scalable LLM orchestration, async APIs, and vector search"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain~=1.2.0",
+    "langgraph~=1.1.0",
+    "fastapi~=0.135.0",
+    "uvicorn[standard]~=0.41.0",
+    "streamlit~=1.45.0",
+    "qdrant-client~=1.14.0",
+    "langchain-qdrant~=0.2.0",
+    # "faiss-cpu~=1.10.0",  # uncomment for FAISS fallback mode
+    "pymongo~=4.16.0",
+    "motor~=3.7.0",
+    "langchain-community~=0.4.0",
+    "langchain-openai~=1.1.0",
+    "tavily-python~=0.7.0",
+    "pydantic~=2.12.0",
+    "pydantic-settings~=2.9.0",
+    "langsmith~=0.3.0",
+    "httpx~=0.28.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+    "pre-commit",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["adaptive_rag"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
+addopts = "--cov=backend --cov-report=term-missing -v"
