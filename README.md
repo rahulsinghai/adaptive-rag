@@ -148,6 +148,17 @@ adaptive-rag/
 - [uv](https://docs.astral.sh/uv/) (`pip install uv`)
 - Docker + Docker Compose (for local infra)
 
+### Python via pyenv
+
+If you manage multiple Python versions, install `pyenv` and then run:
+
+```bash
+pyenv install 3.12.11
+pyenv local 3.12.11
+```
+
+This ensures the repo uses the exact interpreter version that `uv sync` and the tooling expect.
+
 ### 1. Clone and install
 
 ```bash
@@ -170,13 +181,15 @@ FEATURE_VECTOR_BACKEND=faiss
 MONGODB_URI=memory://
 ```
 
-### 3. Start local infrastructure
+### 3. Start local infrastructure (skip if using remote services)
+
+> **Skip this step** if you have remote MongoDB Atlas, Qdrant Cloud, and LangSmith configured in `.env` — no Docker needed.
 
 ```bash
-# MongoDB + Qdrant only
+# Local MongoDB + Qdrant only
 docker compose -f infra/docker-compose.yml up -d mongodb qdrant
 
-# With n8n workflow automation
+# With n8n workflow automation (see n8n section below)
 docker compose -f infra/docker-compose.yml --profile n8n up -d
 ```
 
@@ -185,18 +198,26 @@ docker compose -f infra/docker-compose.yml --profile n8n up -d
 ### Backend (FastAPI + Uvicorn)
 
 ```bash
+# Via script (supports HOST / PORT / WORKERS / LOG_LEVEL env overrides):
 bash scripts/start_backend.sh
-# or directly:
+
+# Or directly:
 uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Frontend (Streamlit)
 
 ```bash
+# Via script (supports API_BASE_URL / PORT env overrides):
 API_BASE_URL=http://localhost:8000 bash scripts/start_frontend.sh
-# or directly:
+
+# Or directly:
 streamlit run frontend/streamlit_app.py
 ```
+
+![](./media/streamlit-ui.png)
+
+> **Note:** The Streamlit UI is a simple chat interface that allows you to ask questions and get answers from the RAG system. It is not a full-featured chatbot, but it is a good way to test the RAG system.
 
 ### Tests
 
@@ -205,6 +226,30 @@ bash scripts/run_tests.sh
 # or:
 uv run pytest -v
 ```
+
+### n8n Workflow Automation (optional)
+
+n8n is **not required** to run the application. It is an optional automation layer that wraps existing API endpoints with scheduling, triggers, and Slack alerting. Everything it does can be done manually.
+
+| n8n workflow                     | What it automates                     | Without n8n |
+| -------------------------------- | ------------------------------------- | ---------------------------------------------------- |
+| `doc_ingestion_workflow.json`    | Webhook trigger → `POST /ingest`      | Call `POST http://localhost:8000/ingest` directly    |
+| `nightly_eval_workflow.json`     | Nightly cron → `POST /eval/run`       | Run `uv run pytest` or hit `/eval/run` manually      |
+| `regression_alert_workflow.json` | Eval result → Slack alert via webhook | `ALERT_WEBHOOK_URL` in `.env` — backend calls it directly when eval score drops below `EVAL_THRESHOLD` |
+
+**To use n8n locally:**
+
+```bash
+# Start n8n via Docker
+docker compose -f infra/docker-compose.yml --profile n8n up -d
+
+# Open n8n UI
+open http://localhost:5678
+```
+
+Then import the workflow JSON files from `workflows/n8n/` via the n8n UI (Settings → Import workflow).
+
+**To use n8n Cloud** instead of self-hosting, create a free account at [n8n.io](https://n8n.io), import the same JSON files, and update the webhook/API base URLs to point to your deployed backend.
 
 ## How Adaptive Routing Works
 
